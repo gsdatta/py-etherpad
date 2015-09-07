@@ -19,13 +19,10 @@ def clean_url(url):
 
 
 def generate_url(url, function, params, api_key):
-    return '%s/%s?%s' % (url, function, urllib.parse.urlencode(dict(apikey=api_key, **params)))
+    return '%s/%s?%s' % (clean_url(url), function, urllib.parse.urlencode(dict(apikey=api_key, **params)))
 
 
 class EtherpadClient(object):
-    functions = {
-        'createAuthorIfNotExistsFor': {}
-    }
     def __init__(self, base_url, api_key):
         self.api_key = api_key
         self.base_url = base_url
@@ -102,7 +99,7 @@ class EtherpadClient(object):
 
         if group_id is not None:
             params['function'] = 'createGroupIfNotExistsFor'
-            params['groupID'] = group_id
+            params['groupMapper'] = group_id
 
         req = self._send_request(**params)
         return req['data']['groupID']
@@ -140,7 +137,7 @@ class EtherpadClient(object):
             'authorID': author_id
         }
         req = self._send_request(**params)
-        return req['data']['authorName']
+        return req['data']
 
     # ============================================= SESSION FUNCTIONS =============================================
     def create_session(self, group_id, author_id, valid_until):
@@ -169,7 +166,7 @@ class EtherpadClient(object):
         }
         req = self._send_request(**params)
 
-    def list_sessions(self, group_id, author_id):
+    def list_sessions(self, group_id=None, author_id=None):
         """
         Returns a list of sessions, optionally filtered by ``group_id``, ``author_id``, or both.
 

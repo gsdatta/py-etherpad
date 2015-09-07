@@ -1,6 +1,8 @@
-# py-etherpad
+etherpadlite
+============
 
 A client library for etherpad
 
-## Installation
+Installation
+============
 Create a virtualenv by runnin

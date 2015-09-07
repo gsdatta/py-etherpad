@@ -1,7 +1,7 @@
 # Created by https://www.gitignore.io/api/ythoh,python,osx,pycharm
 
-#!! ERROR: ythoh is undefined. Use list command to see defined gitignore types !!#
 docs/
+.hypothesis/
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
