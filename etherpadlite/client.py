@@ -1,3 +1,4 @@
+from etherpadlite.models import Pad
 import requests
 import urllib.parse
 
@@ -22,12 +23,29 @@ def generate_url(url, function, params, api_key):
     return '%s/%s?%s' % (clean_url(url), function, urllib.parse.urlencode(dict(apikey=api_key, **params)))
 
 
+def send_etherpad_request(function, url, api_key, **kwargs):
+    req = requests.get(generate_url(url=url, function=function, params=kwargs, api_key=api_key))
+    data = req.json()
+
+    # TODO: Add exceptions based on message
+    code = data['code']
+    if code == 0:
+        return req.json()
+    elif code == 1:
+        raise EtherpadParamsException('Incorrect parameters to API call: [%s].' % data['message'])
+    elif code == 2:
+        raise EtherpadInternalException('Internal error with etherpad: [%s].' % data['message'])
+    elif code == 3:
+        raise EtherpadException('Function does not exist: [%s].' % data['message'])
+    elif code == 4:
+        raise EtherpadAPIKeyException('Incorrect Etherpad API Key: [%s].' % data['message'])
+
 class EtherpadClient(object):
     def __init__(self, base_url, api_key):
         self.api_key = api_key
         self.base_url = base_url
 
-    def _send_request(self, function, **kwargs):
+    def send_request(self, function, **kwargs):
         """
         Sends a request to the Etherpad API
 
@@ -35,57 +53,7 @@ class EtherpadClient(object):
         :param kwargs: API Function parameters
         :return: JSON data from request
         """
-        req = requests.get(generate_url(url=self.base_url, function=function, params=kwargs, api_key=self.api_key))
-        data = req.json()
-
-        # TODO: Add exceptions based on message
-        code = data['code']
-        if code == 0:
-            return req.json()
-        elif code == 1:
-            raise EtherpadParamsException('Incorrect parameters to API call: [%s].' % data['message'])
-        elif code == 2:
-            raise EtherpadInternalException('Internal error with etherpad: [%s].' % data['message'])
-        elif code == 3:
-            raise EtherpadException('Function does not exist: [%s].' % data['message'])
-        elif code == 4:
-            raise EtherpadAPIKeyException('Incorrect Etherpad API Key: [%s].' % data['message'])
-
-    def list_pads(self, author_id=None, group_id=None):
-        """
-        Returns a list of pads, optionally filtered by group_id, author_id, or both.
-
-        If no params are provided, it will attempt to get a list of all pads on the EPL instance.
-
-        If only author_id is provided, it will find pads by that author.
-
-        If only group_id is provided, it will find all pads in that group.
-
-        If both author_id and group_id are provided, it will find pads in that group by that author.
-
-        :param author_id: Author ID to filter by (optional)
-        :param group_id: Group ID to filter by (optional)
-        :return: List of Pad ID's
-        """
-        if author_id is not None and group_id is not None:
-            params = {'authorID': author_id}
-            req = self._send_request(function='listPadsOfAuthor', **params)
-
-            pads_for_author = req['data']['padIDs']
-            return [pad for pad in pads_for_author if group_id in pad]
-
-        params = {}
-        if author_id is None and group_id is None:
-            params['function'] = 'listAllPads'
-        if author_id is not None:
-            params['function'] = 'listPadsOfAuthor'
-            params['authorID'] = author_id
-        elif group_id is not None:
-            params['function'] = 'listPads'
-            params['groupID'] = group_id
-
-        req = self._send_request(**params)
-        return req['data']
+        return send_etherpad_request(function=function, url=self.base_url, api_key=self.api_key, **kwargs)
 
     # ============================================= GROUP FUNCTIONS =============================================
     def create_group(self, group_id=None):
@@ -101,14 +69,14 @@ class EtherpadClient(object):
             params['function'] = 'createGroupIfNotExistsFor'
             params['groupMapper'] = group_id
 
-        req = self._send_request(**params)
+        req = self.send_request(**params)
         return req['data']['groupID']
 
     def delete_group(self, group_id):
-        req = self._send_request(function='deleteGroup', groupID=group_id)
+        req = self.send_request(function='deleteGroup', groupID=group_id)
 
     def list_groups(self):
-        req = self._send_request(function='listAllGroups')
+        req = self.send_request(function='listAllGroups')
         return req['data']['groupIDs']
 
     # ============================================= AUTHOR FUNCTIONS =============================================
@@ -128,7 +96,7 @@ class EtherpadClient(object):
             params['function'] = 'createAuthorIfNotExistsFor'
             params['authorID'] = author_id
 
-        req = self._send_request(**params)
+        req = self.send_request(**params)
         return req['data']['authorID']
 
     def get_author_name(self, author_id):
@@ -136,7 +104,7 @@ class EtherpadClient(object):
             'function': 'getAuthorName',
             'authorID': author_id
         }
-        req = self._send_request(**params)
+        req = self.send_request(**params)
         return req['data']
 
     # ============================================= SESSION FUNCTIONS =============================================
@@ -156,7 +124,7 @@ class EtherpadClient(object):
             'authorID': author_id,
             'validUntil': valid_until
         }
-        req = self._send_request(**params)
+        req = self.send_request(**params)
         return req['data']['sessionID']
 
     def delete_session(self, session_id):
@@ -164,7 +132,7 @@ class EtherpadClient(object):
             'function': 'deleteSession',
             'sessionID': session_id
         }
-        req = self._send_request(**params)
+        req = self.send_request(**params)
 
     def list_sessions(self, group_id=None, author_id=None):
         """
@@ -187,7 +155,7 @@ class EtherpadClient(object):
                 'function': 'listSessionsOfAuthor',
                 'authorID': author_id
             }
-            req = self._send_request(**author_session_params)
+            req = self.send_request(**author_session_params)
             author_sessions = req['data']
             return {key:author_sessions[key] for key in author_sessions if group_id in author_sessions[key]['groupID']}
 
@@ -199,7 +167,7 @@ class EtherpadClient(object):
             params['function'] = 'listSessionsOfAuthor'
             params['authorID'] = author_id
 
-        req = self._send_request(**params)
+        req = self.send_request(**params)
         return req['data']
 
     def get_session_details(self, session_id):
@@ -207,5 +175,70 @@ class EtherpadClient(object):
             'function': 'getSessionInfo',
             'sessionID': session_id
         }
-        req = self._send_request(**params)
+        req = self.send_request(**params)
         return req['data']
+
+    # ============================================= PAD FUNCTIONS =============================================
+    def list_pads(self, author_id=None, group_id=None):
+        """
+        Returns a list of pads, optionally filtered by group_id, author_id, or both.
+
+        If no params are provided, it will attempt to get a list of all pads on the EPL instance.
+
+        If only author_id is provided, it will find pads by that author.
+
+        If only group_id is provided, it will find all pads in that group.
+
+        If both author_id and group_id are provided, it will find pads in that group by that author.
+
+        :param author_id: Author ID to filter by (optional)
+        :param group_id: Group ID to filter by (optional)
+        :return: List of Pad ID's
+        """
+        if author_id is not None and group_id is not None:
+            params = {'authorID': author_id}
+            req = self.send_request(function='listPadsOfAuthor', **params)
+
+            pads_for_author = req['data']['padIDs']
+            return [pad for pad in pads_for_author if group_id in pad]
+
+        params = {}
+        if author_id is None and group_id is None:
+            params['function'] = 'listAllPads'
+        if author_id is not None:
+            params['function'] = 'listPadsOfAuthor'
+            params['authorID'] = author_id
+        elif group_id is not None:
+            params['function'] = 'listPads'
+            params['groupID'] = group_id
+
+        req = self.send_request(**params)
+        return req['data']['padIDs']
+
+    def create_pad(self, pad, text=None, group_id=None):
+        if pad is None:
+            raise ValueError('Pad ID cannot be None')
+
+        params = {}
+
+        if text is not None:
+            params['text'] = text
+
+        if group_id is not None:
+            params['function'] = 'createGroupPad'
+            params['padName'] = pad
+        else:
+            params['function'] = 'createPad'
+            params['padID'] = pad
+
+        req = self.send_request(**params)
+        return Pad(pad, client=self)
+
+    def delete_pad(self, pad_id):
+        params = {
+            'function': 'deletePad',
+            'padID': pad_id
+        }
+
+        self.send_request(**params)
+    # delete, copy, move, readonly

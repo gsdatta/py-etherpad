@@ -65,7 +65,31 @@ def test_exceptions(client):
     from etherpadlite.client import EtherpadParamsException, EtherpadException
 
     with pytest.raises(EtherpadException):
-        client._send_request(function='someFakeFunction')
+        client.send_request(function='someFakeFunction')
 
     with pytest.raises(EtherpadParamsException):
-        client._send_request(function='deleteGroup')
+        client.send_request(function='deleteGroup')
+
+
+def test_pads(client):
+    try:
+        client.delete_pad(pad_id='ETHERPADLITE-PY-TEST')
+    except Exception:
+        pass
+
+    pad = client.create_pad(pad='ETHERPADLITE-PY-TEST', text='TESTING')
+    assert pad.id in client.list_pads()
+
+    assert pad.id == 'ETHERPADLITE-PY-TEST'
+    assert pad.text.strip() == 'TESTING'
+    assert pad.revisions_count == 0
+
+    pad.text = 'TESTING REVISED'
+    assert pad.text.strip() == 'TESTING REVISED'
+    assert pad.revisions_count == 1
+
+    pad.save_revision(revision=1)
+    assert pad.saved_revisions_count == 1
+    assert 1 in pad.saved_revisions
+
+    assert pad.users_count == 0
