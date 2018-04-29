@@ -1,10 +1,10 @@
-#etherpadlite
+# etherpadlite
 A client library for etherpad
 
-##Installation
+## Installation
 Installing this library is as simple as running `pip install etherpadlite`. 
 
-##Usage
+## Usage
 Usage is meant to be as simple as possible.
 ```python
 >>> from etherpadlite.client import EtherpadClient
